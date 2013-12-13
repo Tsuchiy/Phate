@@ -1,0 +1,29 @@
+all:
+  DEBUG: true
+  BASE_URI: http://dev.sample.localserver
+  AUTOLOAD:
+    - %%CONTEXT_ROOT%%/phate/renderers
+    - %%CONTEXT_ROOT%%/project/sample/models
+  FILTER:
+    INPUT:
+#      - MaintenanceFilter
+#      - UpdateFilter
+      - ReSendInputFilter
+#      - AuthFilter
+    OUTPUT:
+      - ReSendOutputFilter
+  LOGGER:
+    load_yaml_file: sample_logger.yml
+  DATABASE:
+    load_yaml_file: sample_database.yml
+  MEMCACHE:
+    load_yaml_file: sample_memcache.yml
+  MAINTENANCE:
+    load_yaml_file: sample.yml
+  REDIS:
+    load_yaml_file: sample_redis.yml
+  TIMER:
+    TIMEZONE: Asia/Tokyo
+    APPLICATION_RESET_TIME: 04:00:00
+  TEMPLATE:
+    cache_dir: %%CONTEXT_ROOT%%/project/sample/data/cache/templates/

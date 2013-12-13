@@ -1,0 +1,28 @@
+/**
+ * %%className%%Peerクラス
+ *
+ * %%tableName%%のO-RMapper取り扱い用クラス(ReadOnly with memcache)
+ *
+ * @access public
+ **/
+class %%className%%Peer
+{
+    public static function retrieveByPk(%%pkeys%%)
+    {
+        $memcacheKey = '%%className%%Orm:row:' . %%memkeyPkeys%%;
+        $obj = new %%className%%Orm();
+        if (($res = PhateMemcached::get($memcacheKey, 'db'))) {
+            $obj->hydrate($res);
+            return $obj;
+        }
+        $dbh = PhateDB::getInstance('%%slaveDatabaseName%%');
+        $params = array(%%pkeys%%);
+        $sql = 'SELECT * FROM %%pureTableName%% WHERE %%pkeyWhere%%';
+        if (($row = $dbh->getRow($sql, $params)) === false) {
+            return false;
+        }
+        PhateMemcached::set($memcacheKey, $row, 0, 'db');
+        $obj->hydrate($row);
+        return $obj;
+    }
+}

@@ -1,0 +1,31 @@
+/**
+ * %%className%%OrmBaseクラス
+ *
+ * %%tableName%%のO-RMapper基礎クラス
+ *
+ * @access  public
+ **/
+class %%className%%OrmBase extends PhateORMapperBase
+{
+    protected $_tableName = '%%tableName%%';
+
+    protected $_pkey = array(
+%%pkey%%    );
+    protected $_pkeyIsRowId = %%pkIsRowId%%;
+    protected $_value = array(
+%%value%%    );
+    protected $_toSave = array(
+%%value%%    );
+
+    public function find(%%pkeysArg%% PhateDBO $dbh = null)
+    {
+        $dbh = $dbh ? $dbh : PhateDB::getInstance('%%slaveDatabaseName%%');
+        $params = array(%%pkeys%%);
+        $sql = 'SELECT * FROM %%pureTableName%% WHERE %%pkeyWhere%%';
+        if (($row = $dbh->getRow($sql, $params)) === false) {
+            return false;
+        }
+        $this->hydrate($row);
+        return true;
+    }
+

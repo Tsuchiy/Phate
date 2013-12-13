@@ -1,0 +1,22 @@
+all:
+  DEBUG: false
+  BASE_URI:
+  AUTOLOAD:
+  FILTER:
+    INPUT:
+    OUTPUT:
+  LOGGER:
+    load_yaml_file: 
+  DATABASE:
+    load_yaml_file: 
+  MEMCACHE:
+    load_yaml_file: 
+  MAINTENANCE:
+    load_yaml_file: 
+  TIMER:
+    TIMEZONE: Asia/Tokyo
+    APPLICATION_RESET_TIME: 00:00:00
+  REDIS:
+    load_yaml_file: 
+  TEMPLATE:
+    cache_dir: 

@@ -1,0 +1,39 @@
+/**
+ * %%className%%Peerクラス
+ *
+ * %%tableName%%のO-RMapper取り扱い用クラス
+ *
+ * @access public
+ **/
+class %%className%%Peer
+{
+    public static function retrieveByPk(%%pkeysArg%% $shardId = null, PhateDBO $dbh = null)
+    {
+        if (is_null($dbh)) {
+            if (is_null($shardId)) {
+                throw new PhateDatabaseException('shardId empty');
+            }
+            $dbh = PhateDB::getInstanceByShardId('%%databaseName%%', $shardId);
+        }
+        $params = array(%%pkeys%%);
+        $sql = 'SELECT * FROM %%pureTableName%% WHERE %%pkeyWhere%%';
+        if (($row = $dbh->getRow($sql, $params)) === false) {
+            return false;
+        }
+        $obj = new %%className%%Orm();
+        $obj->hydrate($row);
+        return $obj;
+    }
+
+    public static function retrieveByPkForUpdate(%%pkeys%%, PhateDBO $dbh)
+    {
+        $params = array(%%pkeys%%);
+        $sql = 'SELECT * FROM %%pureTableName%% WHERE %%pkeyWhere%% FOR UPDATE';
+        if (($row = $dbh->getRow($sql, $params)) === false) {
+            return false;
+        }
+        $obj = new %%className%%Orm();
+        $obj->hydrate($row);
+        return $obj;
+    }
+}

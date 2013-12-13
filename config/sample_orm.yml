@@ -1,0 +1,60 @@
+project_name: sample
+common_master: 
+  slave_name: common_slave
+  sharding: false
+  tables: 
+    - 
+      table_name: user_auth_data
+      read_only: false
+    - 
+      table_name: user_device_info
+      read_only: false
+    - 
+      table_name: user_disable_m
+      read_only: true
+    - 
+      table_name: application_info_m
+      read_only: true
+    - 
+      table_name: reward_m
+      read_only: true
+    - 
+      table_name: lbonus_term_m
+      read_only: true
+    - 
+      table_name: lbonus_point_m
+      read_only: true
+    - 
+      table_name: lbonus_point_reward_m
+      read_only: true
+    - 
+      table_name: lbonus_campaign_reward_m
+      read_only: true
+    - 
+      table_name: user_level_m
+      read_only: true
+shard_user_master:
+  slave_name: shard_user_slave
+  sharding: true
+  tables: 
+    - 
+      table_name: user_data
+      read_only: false
+    - 
+      table_name: user_item
+      read_only: false
+    - 
+      table_name: user_virtual_money
+      read_only: false
+    - 
+      table_name: friend_user
+      read_only: false
+    - 
+      table_name: gift_user
+      read_only: false
+    - 
+      table_name: activity_user
+      read_only: false
+    - 
+      table_name: lbonus_point_user
+      read_only: false

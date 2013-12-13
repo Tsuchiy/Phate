@@ -1,0 +1,6 @@
+all:
+  host: https://sandbox.itunes.apple.com/
+  ca_path: /path/cert/
+  ca_info: /path/cert/ca.crt
+  ssl_cert: /path/cert/client.pem
+  ssl_cert_password: xxxxxxx
