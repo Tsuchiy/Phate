@@ -372,9 +372,13 @@ class PhateCore
      * デストラクタ
      * 
      */
-    function __destruct()
+    public function __destruct()
     {
-        PhateMemcached::disconnect();
-        PhateDB::disconnect();
+        if (class_exists('PhateMemcached')) {
+            PhateMemcached::disconnect();
+        }
+        if (class_exists('PhateDB')) {
+            PhateDB::disconnect();
+        }
     }
 }
