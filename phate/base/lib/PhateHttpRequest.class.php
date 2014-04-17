@@ -34,7 +34,7 @@ class PhateHttpRequest
     
     private static $_headerParam;
     
-    private static $_calledModule;
+    private static $_calledModuleName;
     private static $_calledControllerName;
     
     private static $_userId = null;
@@ -56,7 +56,7 @@ class PhateHttpRequest
         self::$_headerParam = self::getallheaders();
         
         // リクエストパラメータを変数に代入＆処理
-        self::$_requestParam = $_REQUEST;
+        self::$_requestParam = $_REQUEST ? $_REQUEST : array();
         if (isset(self::$_requestParam['module'])) {
             $moduleString = trim(self::$_requestParam['module']);
             unset(self::$_requestParam['module']);
@@ -65,7 +65,7 @@ class PhateHttpRequest
             $controllerString = 'Index';
         }
         if (isset(self::$_requestParam['controller'])) {
-            $controllerString = trim(self::$_requestParam['controller']);
+            $controllerString = trim(self::$_requestParam['controller'], " /");
             unset(self::$_requestParam['controller']);
         } else {
             $controllerString = 'Index';
@@ -84,7 +84,7 @@ class PhateHttpRequest
         if (empty($moduleString)) {
             throw new Phate404Exception();
         }
-        self::$_calledModule = $moduleString;
+        self::$_calledModuleName = $moduleString;
         self::$_calledControllerName = $controllerString;
         // ユーザエージェントからdevice判定
         self::$_deviceCode = self::checkUserAgent();
@@ -157,7 +157,7 @@ class PhateHttpRequest
      */
     public static function getCalledModule()
     {
-        return self::$_calledModule;
+        return self::$_calledModuleName;
     }
     
     /**
@@ -240,16 +240,19 @@ class PhateHttpRequest
         }
         return $headers;
     }
-    
+    /**
+     * ユーザーエージェントからデバイスを判定する
+     * @return int
+     */
     public static function checkUserAgent()
     {
         $rtn = self::DEVICE_UNKNOWN;
-        if(!array_key_exists('HTTP_USER_AGENT', $_SERVER) || !($userAgent = $_SERVER['HTTP_USER_AGENT'])) {
+        if (!array_key_exists('HTTP_USER_AGENT', $_SERVER) || !($userAgent = $_SERVER['HTTP_USER_AGENT'])) {
             return $rtn;
         }
         
         // キャリアチェック
-        if(strpos($userAgent,'DoCoMo') !== false) {
+        if (strpos($userAgent,'DoCoMo') !== false) {
             // DoCoMo
             $rtn = self::DEVICE_FP_DOCOMO;
         } elseif (strpos($userAgent,'UP.Browser') !== false) {

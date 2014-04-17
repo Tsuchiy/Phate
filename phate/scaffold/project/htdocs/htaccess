@@ -7,6 +7,6 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
 
-    RewriteRule ^([0-9A-Za-z_]+)\/([^/]*)\/(.*)$ index.php?module=$1&controller=$2 [QSA,L,NE]
+    RewriteRule ^([^\/]+)\/([^\/]*)\/(.*)$ index.php?module=$1&controller=$2 [QSA,L,NE]
 
 </IfModule>

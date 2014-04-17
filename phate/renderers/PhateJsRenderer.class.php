@@ -1,15 +1,15 @@
 <?php
 /**
- * PhatePureRendererクラス
+ * PhateJSRendererクラス
  *
- * パラメータをダンプ出力するレンダラ
+ * JavaScriptのヘッダを付け描画をするレンダラ
  *
  * @package PhateFramework
  * @access  public
  * @author  Nobuo Tsuchiya <develop@m.tsuchi99.net>
  * @create  2013/08/01
  **/
-class PhatePureRenderer
+class PhateJsRenderer
 {
     public function __construct()
     {
@@ -22,6 +22,7 @@ class PhatePureRenderer
      */
     public function render($value)
     {
+        PhateHttpResponseHeader::setContentType('text/javascript');
         print_r($value);
     }
 }

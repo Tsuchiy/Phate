@@ -128,6 +128,9 @@ class PhateValidator
      */
     protected function _typeNumber ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         return is_numeric($requestParam);
     }
     /**
@@ -139,6 +142,9 @@ class PhateValidator
      */
     protected function _typeNumberMinMax ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_numeric($requestParam)) {
             return false;
         }
@@ -166,6 +172,9 @@ class PhateValidator
      */
     protected function _typeAlphabet ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_string($requestParam)) {
             return false;
         }
@@ -180,6 +189,9 @@ class PhateValidator
      */
     protected function _typeAlphabetOrNumber ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_string($requestParam)) {
             return false;
         }
@@ -196,6 +208,9 @@ class PhateValidator
     
     protected function _typeLenMinMax  ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_string($requestParam)) {
             return false;
         }
@@ -223,6 +238,9 @@ class PhateValidator
      */
     protected function _typeWidthMinMax  ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_string($requestParam)) {
             return false;
         }
@@ -249,6 +267,9 @@ class PhateValidator
      */
     protected function _typeEnum ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_array($validationParam)) {
             return false;
         }
@@ -264,6 +285,9 @@ class PhateValidator
      */
     protected function _typeArray ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         return is_array($requestParam);
     }
     
@@ -276,6 +300,9 @@ class PhateValidator
      */
     protected function _typeNotArray ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         return !is_array($requestParam);
     }
     
@@ -288,6 +315,9 @@ class PhateValidator
      */
     protected function _typeArrayCountMinMax ($requestParam, $validationParam)
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_array($requestParam)) {
             return false;
         }
@@ -315,6 +345,9 @@ class PhateValidator
      */
     protected function _typePreg ($requestParam, $validationParam) 
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_string($requestParam) || !is_string($validationParam)) {
             return false;
         }
@@ -330,6 +363,9 @@ class PhateValidator
      */
     protected function _typeMbEreg ($requestParam, $validationParam) 
     {
+        if (is_null($requestParam)) {
+            return true;
+        }
         if (!is_string($requestParam) || !is_string($validationParam)) {
             return false;
         }

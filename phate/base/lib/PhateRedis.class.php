@@ -65,7 +65,7 @@ class PhateRedis
                 self::setConfig();
             }
             if (!isset(self::$_config[$namespace])) {
-                throw new PhateRedisConnectFailException('cant resolv namespace');
+                throw new PhateRedisConnectFailException('cant resolve namespace on redis');
             }
             $instance = null;
             // レプリケーション対応
@@ -85,6 +85,28 @@ class PhateRedis
         }
         return self::$_instancePool[$namespace];
     }
+    
+    /**
+     * 接続中のインスタンスを全て明示的に切断する
+     * 
+     * @return void
+     */
+    public static function disconnect()
+    {
+        if (!self::$_realInstancePool || !is_array(self::$_realInstancePool)) {
+            return;
+        }
+        foreach (self::$_realInstancePool as $instance) {
+            $instance->close();
+        }
+        unset(self::$_realInstancePool);
+        if (!self::$_instancePool) {
+            return;
+        }
+        unset(self::$_instancePool);
+        return;
+    }
+    
 }
 /**
  * PhateRedisConnectFailException

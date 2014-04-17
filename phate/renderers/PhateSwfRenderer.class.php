@@ -10,11 +10,14 @@
  * @author  Nobuo Tsuchiya <develop@m.tsuchi99.net>
  * @create  2013/08/01
  **/
-class PhateSwfRenderer {
-    public function __construct() {
+class PhateSwfRenderer
+{
+    public function __construct()
+    {
     }
     
-    public function render($filename, $value) {
+    public function render($filename, $value)
+    {
         PhateHttpResponseHeader::setContentType('Content-type: application/x-shockwave-flash');
         $output = $value;
         /*

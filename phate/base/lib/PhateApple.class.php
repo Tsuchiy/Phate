@@ -15,8 +15,8 @@ class PhateApple
 {
     private static $_config;
     
-    /*
-     * 設定ファイルよりmemcacheの設定を取得
+    /**
+     * 設定ファイルよりappleの設定を取得
      */
     private static function setConfig()
     {
@@ -27,7 +27,30 @@ class PhateApple
         $filename = PHATE_CONFIG_DIR . $sysConf['APPLE']['load_yaml_file'];
         self::$_config = PhateCommon::parseConfigYaml($filename);
     }
-    
+
+    /**
+     * iOS6絵文字を含むか判定する
+     * 参照用のjsonは https://github.com/punchdrunker/iOSEmoji より
+     * 
+     * @param string $string
+     * @return boolean
+     */
+    public static function hasIos6Emoji($string)
+    {
+        $fileName = PHATE_LIB_VENDOR_DIR . '/iOSEmoji/table_html/emoji.json';
+        $arr = json_decode(str_replace("'", '"', file_get_contents($fileName)), true);
+        $pattern = '/';
+        foreach ($arr as $v) {
+            $pattern .= '(' . str_replace(' ' ,'', str_replace('0x' ,'', $v)) . ')|';
+        }
+        $pattern = strtolower(substr($pattern, 0, -1)) . '/';
+        $chr = mb_convert_encoding($string, "UTF16", "UTF8");
+        $escaped = '';
+        for ($i = 0, $l = strlen($chr); $i < $l; $i++) {
+            $escaped .= strtolower(sprintf("%02x", ord($chr[$i])));
+        }
+        return preg_match($pattern, $escaped);
+    }
     /**
      * レシートが正当か確認する
      * @param string $receipt

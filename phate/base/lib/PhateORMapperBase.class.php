@@ -19,6 +19,8 @@ class PhateORMapperBase
     
     protected $_value = array();
     
+    protected $_type = array();
+    
     protected $_toSave = array();
     
     protected $_changeFlg = true;
@@ -34,6 +36,9 @@ class PhateORMapperBase
      */
     public function __get($name)
     {
+        if (!array_key_exists($name, $this->_toSave)) {
+            throw new PhateDatabaseException('column not found');
+        }
         return $this->_toSave[$name];
     }
     
@@ -47,6 +52,9 @@ class PhateORMapperBase
      */
     public function __set($name, $value)
     {
+        if (!array_key_exists($name, $this->_value)) {
+            throw new PhateDatabaseException('column not found');
+        }
         if ($this->_value[$name] != $value) {
             $this->_changeFlg = true;
         }
@@ -64,8 +72,12 @@ class PhateORMapperBase
     {
         $this->_changeFlg = false;
         $this->_fromHydrateFlg = true;
-        $this->_value = $row;
-        $this->_toSave = $row;
+        foreach ($this->_value as $column => $value) {
+            if (array_key_exists($column, $row)) {
+                $this->_value[$column] = $row[$column];
+                $this->_toSave[$column] = $row[$column];
+            }
+        }
     }
 
     /**
@@ -109,7 +121,7 @@ class PhateORMapperBase
             }
             // autoincrementに新規行を追加するとき
             $toSave = $this->_toSave;
-            if ($this->_pkeyIsRowId) {
+            if ($this->_pkeyIsRowId && is_null($this->_toSave[$this->_pkey[0]])) {
                 $pkey = $this->_pkey[0];
                 unset($toSave[$pkey]);
             }
@@ -117,12 +129,21 @@ class PhateORMapperBase
             $columnClause = '(' . implode(',', $columns) . ')';
             $placeClause = str_repeat('?,', count($toSave));
             $placeClause = '(' . substr($placeClause, 0, -1) . ')';
-            $params = array_values($toSave);
             $sql = 'INSERT INTO ' .$this->_tableName . ' ' . $columnClause . ' VALUES ' . $placeClause;
-            if ($dbh->executeSql($sql, $params) === false) {
+            $sth = $dbh->prepare($sql);
+            $i = 0;
+            foreach ($columns as $column) {
+                $value = $this->_toSave[$column];
+                if (isset($this->_type[$column])) {
+                    $sth->bindValue(++$i, $value, $this->_type[$column]);
+                } else {
+                    $sth->bindValue(++$i, $value, PDO::PARAM_STR);
+                }
+            }
+            if ($sth->execute() === false) {
                 return false;
             }
-            if ($this->_pkeyIsRowId) {
+            if ($this->_pkeyIsRowId && is_null($this->_toSave[$this->_pkey[0]])) {
                 $this->_toSave[$pkey] = $dbh->lastInsertId();
             }
         } else {
@@ -132,18 +153,33 @@ class PhateORMapperBase
             foreach ($this->_toSave as $key => $value) {
                 $setClause .= $setClause == '' ? ' SET ' : ' , ';
                 $setClause .= $key .' = ? ';
-                $setParam[] = $value;
+                $setParam[$key] = $value;
             }
             $whereClause = '';
             $whereParam = array();
             foreach ($this->_pkey as $key) {
                 $whereClause .= $whereClause == '' ? ' WHERE ' : ' AND ';
                 $whereClause .= $key . ' = ? ';
-                $whereParam[] = $this->_value[$key];
+                $whereParam[$key] = $this->_value[$key];
             }
             $sql = 'UPDATE ' . $this->_tableName . $setClause . $whereClause;
-            $params = array_merge($setParam, $whereParam);
-            if ($dbh->executeSql($sql, $params) === false) {
+            $sth = $dbh->prepare($sql);
+            $i = 0;
+            foreach ($setParam as $column => $value) {
+                if (isset($this->_type[$column])) {
+                    $sth->bindValue(++$i, $value, $this->_type[$column]);
+                } else {
+                    $sth->bindValue(++$i, $value, PDO::PARAM_STR);
+                }
+            }
+            foreach ($whereParam as $column => $value) {
+                if (isset($this->_type[$column])) {
+                    $sth->bindValue(++$i, $value, $this->_type[$column]);
+                } else {
+                    $sth->bindValue(++$i, $value, PDO::PARAM_STR);
+                }
+            }
+            if ($sth->execute() === false) {
                 return false;
             }
         }
@@ -171,14 +207,21 @@ class PhateORMapperBase
             return false;
         }
         $whereClause = '';
-        $whereParam = array();
         foreach ($this->_pkey as $key) {
             $whereClause .= $whereClause == '' ? ' WHERE ' : ' AND ';
             $whereClause .= $key . ' = ?';
-            $whereParam[] = $this->_value[$key];
         }
         $sql = 'DELETE FROM ' . $this->_tableName . $whereClause;
-        if ($dbh->executeSql($sql, $whereParam) === false) {
+        $sth = $dbh->prepare($sql);
+        $i = 0;
+        foreach ($this->_pkey as $column) {
+            if (isset($this->_type[$column])) {
+                $sth->bindValue(++$i, $this->_value[$column], $this->_type[$column]);
+            } else {
+                $sth->bindValue(++$i, $this->_value[$column], PDO::PARAM_STR);
+            }
+        }
+        if ($sth->execute() === false) {
             return false;
         }
         $this->_changeFlg = false;
@@ -208,20 +251,28 @@ class PhateORMapperBase
             return false;
         }
         $whereClause = '';
-        $whereParam = array();
         foreach ($this->_pkey as $key) {
             $whereClause .= $whereClause == '' ? ' WHERE ' : ' AND ';
             $whereClause .= $key . ' = ?';
-            $whereParam[] = $this->_value[$key];
         }
         $modifiedClause = '';
         if (array_key_exists('modified', $this->_value)) {
             $modifiedClause = ",modified = '" . PhateTimer::getDateTime() . "' ";
         }
         $sql = 'UPDATE ' . $this->_tableName . ' SET deleted = 1 ' . $modifiedClause . $whereClause;
-        if ($dbh->executeSql($sql, $whereParam) === false) {
+        $sth = $dbh->prepare($sql);
+        $i = 0;
+        foreach ($this->_pkey as $column) {
+            if (isset($this->_type[$column])) {
+                $sth->bindValue(++$i, $this->_value[$column], $this->_type[$column]);
+            } else {
+                $sth->bindValue(++$i, $this->_value[$column], PDO::PARAM_STR);
+            }
+        }
+        if ($sth->execute() === false) {
             return false;
         }
+        
         $this->_changeFlg = false;
         $this->_fromHydrateFlg = true;
         $this->_value['deleted'] = 1;

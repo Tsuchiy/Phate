@@ -121,4 +121,5 @@ class PhateCommon
         $string = preg_replace('/([A-Z])/', '_$1', $string);
         return strtolower($string);
     }
+    
 }

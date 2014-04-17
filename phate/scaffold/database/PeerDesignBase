@@ -10,7 +10,6 @@ class %%className%%Peer
     public static function retrieveByPk(%%pkeysArg%% PhateDBO $dbh = null)
     {
         if (is_null($dbh)) {
-            $forUpdateClause = '';
             $dbh = PhateDB::getInstance('%%databaseName%%');
         }
         $params = array(%%pkeys%%);

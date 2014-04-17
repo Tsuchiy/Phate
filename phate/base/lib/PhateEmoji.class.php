@@ -1,7 +1,4 @@
 <?php
-// HTML_Emojiをインクルード
-include_once Phate_LIB_VENDOR_DIR . 'HTML/Emoji.php';
-
 /**
  * PhateEmojiクラス
  *

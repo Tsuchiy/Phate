@@ -59,6 +59,9 @@ class PhateLogger
         $message  = sprintf(self::DEFAULT_PREFIX, PhateTimer::getDateTime(), $name);
         $message .= $string . "\n";
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
 
@@ -81,6 +84,9 @@ class PhateLogger
         $message  = sprintf(self::DEFAULT_PREFIX, PhateTimer::getDateTime(), $name);
         $message .= $string . "\n";
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
 
@@ -103,6 +109,9 @@ class PhateLogger
         $message  = sprintf(self::DEFAULT_PREFIX, PhateTimer::getDateTime(), $name);
         $message .= $string . "\n";
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
     
@@ -125,6 +134,9 @@ class PhateLogger
         $message  = sprintf(self::DEFAULT_PREFIX, PhateTimer::getDateTime(), $name);
         $message .= $string . "\n";
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
     
@@ -147,6 +159,9 @@ class PhateLogger
         $message  = sprintf(self::DEFAULT_PREFIX, PhateTimer::getDateTime(), $name);
         $message .= $string . "\n";
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
     
@@ -167,6 +182,9 @@ class PhateLogger
         $message .= "(" . $errfile ." , line:" . $errline . ")\n";
         
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
 
@@ -186,24 +204,34 @@ class PhateLogger
     }
     
     /**
-     * カスタムログ出力
-     * 
-     * @param type $name
-     * @param type $arguments
+     * カスタムログ出力(マジックメソッド)
+     * 適宜の名前のログ出力を行う
+     *  
+     * @param string $name
+     * @param array $arguments
      * @throws PhateCommonException
      */
     public static function __callStatic($name, $arguments)
     {
         $name = strtoupper($name);
-        if (!isset(self::$_config[$name]['log_file_path']) ||
-            !isset(self::$_config[$name]['log_file_name']) ) {
-            throw new PhateCommonException('no logger config');
+        if (!isset(self::$_config[$name]['log_file_path'])) {
+            return false;
         }
         $outputPath = self::$_config[$name]['log_file_path'];
-        $outputFilename = self::$_config[$name]['log_file_name'];
         $message = array_shift($arguments) . "\n";
+        if (($filename = array_shift($arguments))) {
+            $outputFilename = $filename;
+        } else {
+            if (!isset(self::$_config[$name]['log_file_name'])) {
+                return false;
+            }
+            $outputFilename = self::$_config[$name]['log_file_name'];
+        }
         
         error_log($message, 3, $outputPath . $outputFilename);
+        if (substr(sprintf('%o', fileperms($outputPath . $outputFilename)), -4) !=='0666') {
+            chmod($outputPath . $outputFilename, 0666);
+        }
         return true;
     }
 }

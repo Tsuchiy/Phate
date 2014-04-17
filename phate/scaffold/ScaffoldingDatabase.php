@@ -55,6 +55,8 @@ class scaffoldingDatabase
                 $pkeys = array();
                 $pkeysCamel = array();
                 $values = array();
+                $types = array();
+                $pkeyBindStatement = '';
                 foreach ($columnStatus as $column) {
                     if (strstr($column['Extra'],'auto_increment') !== false) {
                         $pkIsRowId = 'true';
@@ -62,8 +64,21 @@ class scaffoldingDatabase
                     if (strstr($column['Key'], 'PRI') !== false) {
                         $pkeys[] = $column['Field'];
                         $pkeysCamel[] = PhateCommon::camelizeString($column['Field']);
+                        $pkeyBindStatement .= '\'' . $column['Field'] . '\' => $' . PhateCommon::camelizeString($column['Field']) . ', ';
                     }
                     $values[$column['Field']] = $column['Default'];
+                    if ((strpos(strtolower($column['Type']), 'int') !== false)
+                            || (strtolower($column['Type']) == 'bit')
+                            || (strtolower($column['Type']) == 'float')
+                            || (strtolower($column['Type']) == 'double')
+                            || (strtolower($column['Type']) == 'decimal')) {
+                        $types[$column['Field']] = 'PDO::PARAM_INT';
+                    } elseif ((strpos(strtolower($column['Type']), 'binary') !== false)
+                            || (strpos(strtolower($column['Type']), 'blob') !== false)) {
+                        $types[$column['Field']] = 'PDO::PARAM_LOB';
+                    } else {
+                        $types[$column['Field']] = 'PDO::PARAM_STR';
+                    }
                 }
                 $whereClause = implode(' = ? AND ', $pkeys) . ' = ? ';
                 $pkeysList = $pkeysCamel ? '$' . implode(', $', $pkeysCamel) : '';
@@ -87,12 +102,14 @@ class scaffoldingDatabase
                 $str = str_replace('%%pkey%%', $pkeyStatement, $str);
                 $str = str_replace('%%pkeys%%', $pkeysList, $str);
                 $str = str_replace('%%pkeysArg%%', $pkeysArgList, $str);
+                $str = str_replace('%%pkeyBindStatement%%', $pkeyBindStatement, $str);
                 $str = str_replace('%%pkIsRowId%%', $pkIsRowId, $str);
                 $str = str_replace('%%slaveDatabaseName%%', $slaveDatabaseName, $str);
                 $str = str_replace('%%pureTableName%%', $tableName, $str);
                 $str = str_replace('%%pkeyWhere%%', $whereClause, $str);
                 $valueStatement = '';
                 $methodStatement = '';
+                $typeStatement = '';
                 foreach ($values as $columnName => $defaultValue) {
                     $valueStatement .= "        '" . $columnName . "' => ";
                     if ((string)$defaultValue === '') {
@@ -114,8 +131,11 @@ class scaffoldingDatabase
                     $methodStatement .= '        $this->_toSave[\'' . $columnName . '\'] = $value;' . "\n";
                     $methodStatement .= '    }' . "\n";
                     $methodStatement .= '    ' . "\n";
+                    
+                    $typeStatement .= "        '" . $columnName . "' => " .$types[$columnName] . ",\n";
                 }
                 $str = str_replace('%%value%%', $valueStatement, $str);
+                $str = str_replace('%%type%%', $typeStatement, $str);
                 $str = "<?php\n" . $str . $methodStatement . '}' . "\n";
                 file_put_contents($ormBaseDirectory . $className . 'OrmBase.class.php', $str);
                 // ormapperClass
@@ -146,9 +166,27 @@ class scaffoldingDatabase
                         } else {
                             $oRMapperMethod .= '        $dbh = $dbh ? $dbh : PhateDB::getInstance(\'' . $slaveDatabaseName . '\');' . "\n";
                         }
-                        $oRMapperMethod .= '        $params = array(' . $pkeysList . ');' . "\n";
+                        $oRMapperMethod .= '        $params = array(' . $pkeyBindStatement . ');' . "\n";
                         $oRMapperMethod .= '        $sql = "SELECT * FROM ' . $tableName . ' WHERE ' . $whereClause . '";' . "\n";
-                        $oRMapperMethod .= '        if (($row = $dbh->getRow($sql, $params)) === false) {' . "\n";
+                        $oRMapperMethod .= '        $sth = $dbh->prepare($sql);' . "\n";
+                        $oRMapperMethod .= '        $i = 0;' . "\n";
+                        $oRMapperMethod .= '        foreach ($params as $column => $value) {' . "\n";
+                        $oRMapperMethod .= '            if (isset($this->_type[$column])) {' . "\n";
+                        $oRMapperMethod .= '                $sth->bindValue(++$i, $value, $this->_type[$column]);' . "\n";
+                        $oRMapperMethod .= '            } else {' . "\n";
+                        $oRMapperMethod .= '                $sth->bindValue(++$i, $value, PDO::PARAM_STR);' . "\n";
+                        $oRMapperMethod .= '            }' . "\n";
+                        $oRMapperMethod .= '        }' . "\n";
+                        $oRMapperMethod .= '        $sth->execute();' . "\n";
+                        $oRMapperMethod .= '        $row = array();' . "\n";
+                        $oRMapperMethod .= '        foreach ($this->_value as $column => $v) {' . "\n";
+                        $oRMapperMethod .= '            if (isset($this->_type[$column])) {' . "\n";
+                        $oRMapperMethod .= '                $sth->bindColumn($column, $row[$column], $this->_type[$column]);' . "\n";
+                        $oRMapperMethod .= '            } else {' . "\n";
+                        $oRMapperMethod .= '                $sth->bindColumn($column, $row[$column]);' . "\n";
+                        $oRMapperMethod .= '            }' . "\n";
+                        $oRMapperMethod .= '        }' . "\n";
+                        $oRMapperMethod .= '        if (($sth->fetch(PDO::FETCH_BOUND)) === false) {' . "\n";
                         $oRMapperMethod .= '            return false;' . "\n";
                         $oRMapperMethod .= "        }\n";
                         $oRMapperMethod .= '        PhateMemcached::set($memcacheKey, $row, 0, \'db\');' . "\n";

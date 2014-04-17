@@ -52,7 +52,7 @@ class PhateDB
                 self::setConfig();
             }
             if (!isset(self::$_config[$namespace])) {
-                throw new PhateDatabaseException('cant resolv namespace');
+                throw new PhateDatabaseException('cant resolve namespace on db');
             }
             $dsn  = 'mysql:';
             $dsn .= 'host=' . self::$_config[$namespace]['host'] . ';';
@@ -70,10 +70,10 @@ class PhateDB
                 $attr[PDO::ATTR_PERSISTENT] = true;
                 $persistent = true;
             }
-            $instance = new PhateDBO($dsn, $user, $password, $attr);
-            $instance->setReadOnly(self::$_config[$namespace]['read_only']);
-            $instance->setPersistent($persistent);
-            self::$_instancePool[$namespace] = $instance;
+            self::$_instancePool[$namespace] = new PhateDBO($dsn, $user, $password, $attr);
+            self::$_instancePool[$namespace]->setNamespace($namespace);
+            self::$_instancePool[$namespace]->setReadOnly(self::$_config[$namespace]['read_only']);
+            self::$_instancePool[$namespace]->setPersistent($persistent);
         }
         return self::$_instancePool[$namespace];
     }
@@ -90,7 +90,7 @@ class PhateDB
             self::setConfig();
         }
         if (!isset(self::$_shardConfig[$name][$shardId])) {
-            throw new PhateDatabaseException('cant resolv namespace');
+            throw new PhateDatabaseException('cant resolve namespace on db');
         }
         $databaseName = self::$_shardConfig[$name][$shardId];
         return self::getInstance($databaseName);
@@ -107,7 +107,7 @@ class PhateDB
             self::setConfig();
         }
         if (!array_key_exists($name, self::$_shardConfig) || !is_array(self::$_shardConfig[$name])) {
-            throw new PhateDatabaseException('cant resolv namespace');
+            throw new PhateDatabaseException('cant resolve namespace on db');
         }
         return count(self::$_shardConfig[$name]);
     }
@@ -145,7 +145,23 @@ class PhateDBO extends PDO
     protected $_transactionLevel = 0;
     protected $_isReadOnly;
     protected $_isPersistent = false;
+    protected $_namespace = '';
     
+    /**
+     * namespaceをセットする
+     * @param String $namespace
+     */
+    public function setNamespace($namespace) {
+        $this->_namespace = $namespace;
+    }
+    
+    /**
+     * namespaceをゲットする
+     * @return String $namespace
+     */
+    public function getNamespace() {
+        return $this->_namespace;
+    }
     /**
      * databaseがreadonlyかセットする
      * @param boolean $flg
@@ -369,20 +385,50 @@ class PhateDBO extends PDO
         }
         return $this->executeSql($sql, $bindValues);
     }
-}
-
-/**
- * PhateDatabaseException例外
- *
- * データベース関連の例外
- *
- * @package PhateFramework
- * @access public
- * @author  Nobuo Tsuchiya <develop@m.tsuchi99.net>
- * @create  2013/08/01
- **/
-class PhateDatabaseException extends PDOException
-{
+    
+    /**
+     * 
+     * MySQLでmultipul insertを行う
+     * 
+     * @param string $tableName
+     * @param array $dataArray
+     * @param array $columnList
+     * @return boolean
+     * @throws PhateDatabaseSQLException
+     */
+    public function multipulInsert($tableName, array $dataArray, array $columnList = array())
+    {
+        $param = array();
+        if ($columnList) {
+            $valueSql = '';
+            $tmpArray = array_pad(array(), count($columnList), '?');
+            foreach ($dataArray as $dataRow) {
+                $valueSql .=',(' . implode(',', $tmpArray) . ')';
+                foreach ($columnList as $column) {
+                    if (($param[] = array_shift($dataRow)) === false) {
+                        throw new PhateDatabaseSQLException('illegal data array');
+                    }
+                }
+            }
+            $sql = 'INSERT INTO ' . $tableName . ' (`' . implode('`,`', $columnList) . '`) VALUES ' . substr($valueSql, 1);
+        } else {
+            $columns = array();
+            foreach ($dataArray as $dataRow) {
+                $columns = array_unique(array_merge($columns, array_keys($dataRow)));
+            }
+            $valueSql = '';
+            $tmpArray = array_pad(array(), count($columns), '?');
+            foreach ($dataArray as $dataRow) {
+                $valueSql .=',(' . implode(',', $tmpArray) . ')';
+                foreach ($columns as $column) {
+                    $param[] = isset($dataRow[$column]) ? $dataRow[$column] : null;
+                }
+            }
+            $sql = 'INSERT INTO ' . $tableName . ' (`' . implode('`,`', $columns) . '`) VALUES ' . substr($valueSql, 1);
+        }
+        
+        return $this->executeSql($sql, $param);
+    }
 }
 
 /**

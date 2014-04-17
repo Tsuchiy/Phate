@@ -15,6 +15,8 @@ class PhateMemcached {
     private static $_config;
     private static $_realInstancePool;
     private static $_instancePool;
+    private static $_instancePool4Set;
+    private static $_getDisable = false;
     
     /**
      * 設定ファイルよりmemcacheの設定を取得
@@ -45,12 +47,14 @@ class PhateMemcached {
     {
         if (!isset(self::$_realInstancePool[$host][$port])) {
             $m = new Memcached;
+            $m->setOption(Memcached::OPT_CONNECT_TIMEOUT, 1000);
+            $m->setOption(Memcached::OPT_SEND_TIMEOUT, 1000);
+            $m->setOption(Memcached::OPT_RECV_TIMEOUT, 1000);
             $m->addServer($host, $port);
             // 疎通確認
             $m->getVersion();
             if ($m->getResultCode() !== Memcached::RES_SUCCESS) {
                 throw new PhateMemcachedConnectFailException();
-                return null;
             }
             self::$_realInstancePool[$host][$port] = $m;
         }
@@ -71,14 +75,18 @@ class PhateMemcached {
                 self::setConfig();
             }
             if (!isset(self::$_config[$namespace])) {
-                throw new PhateMemcachedConnectFailException('cant resolv namespace');
+                throw new PhateMemcachedConnectFailException('cant resolve namespace on memcache');
             }
             $instance = null;
+            $instance4Set = array();
             // レプリケーション対応
             foreach (self::$_config[$namespace]['server'] as $serverConfig) {
                 try {
-                    $instance = self::getRealInstance($serverConfig['host'], $serverConfig['port']);
-                    break;
+                    $tmpInstance = self::getRealInstance($serverConfig['host'], $serverConfig['port']);
+                    if (is_null($instance)) {
+                        $instance = $tmpInstance;
+                    }
+                    $instance4Set[] = $tmpInstance;
                 } catch (PhateMemcachedConnectFailException $e) {
                     continue;
                 }
@@ -88,8 +96,23 @@ class PhateMemcached {
                 throw new PhateMemcachedConnectFailException();
             }
             self::$_instancePool[$namespace] = $instance;
+            self::$_instancePool4Set[$namespace] = $instance4Set;
         }
         return self::$_instancePool[$namespace];
+    }
+    
+    /**
+     * 接続名の全てのインスタンスを返す
+     * 
+     * @param string $namespace
+     * @return array
+     */
+    private static function getInstance4Set($namespace)
+    {
+        if (!isset(self::$_instancePool4Set[$namespace])) {
+            self::getInstance($namespace);
+        }
+        return self::$_instancePool4Set[$namespace];
     }
     
     /**
@@ -115,6 +138,7 @@ class PhateMemcached {
 
     /**
      * memcacheに値を格納
+     * バックアップサーバ対策？のためにキーを全サーバに保存しに行く
      * 
      * @access public
      * @param string $key
@@ -125,15 +149,23 @@ class PhateMemcached {
      */
     public static function set($key, $value, $expiration = NULL, $namespace = 'default')
     {
-        $memcached = self::getInstance($namespace);
+        $memcachedList = self::getInstance4Set($namespace);
         if (is_null($expiration)) {
             $expiration = self::$_config[$namespace]['default_expire'];
         }
-        return $memcached->set(self::$_config[$namespace]['default_prefix'] . $key, $value, $expiration);
+        $rtn = true;
+        foreach ($memcachedList as $memcached) {
+            if (($memcached->set(self::$_config[$namespace]['default_prefix'] . $key, $value, $expiration)) === false) {
+                $rtn = false;
+            }
+        }
+        return $rtn;
     }
     
     /**
      * memcacheに値を複数格納
+     * バックアップサーバ対策？のためにキーを全サーバに保存しに行く
+     * 
      * @param array $items
      * @param integer $expiration
      * @param string $namespace
@@ -141,7 +173,9 @@ class PhateMemcached {
      */
     public static function setMulti(array $items, $expiration = NULL, $namespace = 'default')
     {
-        $memcached = self::getInstance($namespace);
+        if (!isset(self::$_config)) {
+            self::setConfig();
+        }
         if (is_null($expiration)) {
             $expiration = self::$_config[$namespace]['default_expire'];
         }
@@ -149,7 +183,14 @@ class PhateMemcached {
         foreach ($items as $key => $value) {
             $realItems[self::$_config[$namespace]['default_prefix'] . $key] = $value;
         }
-        return $memcached->setMulti($realItems, $expiration);
+        $memcachedList = self::getInstance4Set($namespace);
+        $rtn = true;
+        foreach ($memcachedList as $memcached) {
+            if (($memcached->setMulti($realItems, $expiration)) === false) {
+                $rtn = false;
+            }
+        }
+        return $rtn;
     }
     /**
      * memcacheより値を取得
@@ -161,6 +202,9 @@ class PhateMemcached {
      */
     public static function get($key, $namespace = 'default')
     {
+        if (self::$_getDisable) {
+            return false;
+        }
         return self::getInstance($namespace)->get(self::$_config[$namespace]['default_prefix'] . $key);
     }
     /**
@@ -173,6 +217,16 @@ class PhateMemcached {
      */
     public static function getMulti(array $keys, $namespace = 'default')
     {
+        if (self::$_getDisable) {
+            $rtn = array();
+            foreach ($keys as $key) {
+                $rtn[$key] = false;
+            }
+            return $rtn;
+        }
+        if (!isset(self::$_config)) {
+            self::setConfig();
+        }
         foreach ($keys as &$key) {
             $key = self::$_config[$namespace]['default_prefix'] . $key;
         }
@@ -187,8 +241,10 @@ class PhateMemcached {
         }
         return $rtn;
     }
+
     /**
      * memcacheより値を消去
+     * バックアップ対策？のためにキーを全サーバに削除しに行く
      * 
      * @access public
      * @param string $key
@@ -197,13 +253,21 @@ class PhateMemcached {
      */
     public static function delete($key, $namespace = 'default')
     {
-        if (self::get($key, $namespace) === false) {
-            return true;
+        $memcachedList = self::getInstance4Set($namespace);
+        $rtn = true;
+        foreach ($memcachedList as $memcached) {
+            if (($memcached->delete(self::$_config[$namespace]['default_prefix'] . $key)) === false) {
+                if ($memcached->getResultCode() != Memcached::RES_NOTFOUND) {
+                    $rtn = false;
+                }
+            }
         }
-        return self::getInstance($namespace)->delete(self::$_config[$namespace]['default_prefix'] . $key);
+        return $rtn;
     }
     /**
      * memcacheより値を配列で消去
+     * バックアップ対策？のためにキーを全サーバに削除しに行く
+     * 
      * 
      * @access public
      * @param array $keys
@@ -212,10 +276,22 @@ class PhateMemcached {
      */
     public static function deleteMulti(array $keys, $namespace = 'default')
     {
+        if (!isset(self::$_config)) {
+            self::setConfig();
+        }
         foreach ($keys as &$key) {
             $key = self::$_config[$namespace]['default_prefix'] . $key;
         }
-        return self::getInstance($namespace)->deleteMulti($keys);
+        $memcachedList = self::getInstance4Set($namespace);
+        $rtn = true;
+        foreach ($memcachedList as $memcached) {
+            if (($memcached->deleteMulti($keys)) === false) {
+                if ($memcached->getResultCode() != Memcached::RES_NOTFOUND) {
+                    $rtn = false;
+                }
+            }
+        }
+        return $rtn;
     }
     
     /**
@@ -239,6 +315,8 @@ class PhateMemcached {
     }
     /**
      * 直前のmemcached結果コードを取得
+     * バックアップ対策？のために全サーバに更新処理をかけているので、
+     * 必ずしも意図した値は保証されないかもしれない
      * 
      * @access public
      * @param string $namespace
@@ -249,6 +327,18 @@ class PhateMemcached {
         return self::getInstance($namespace)->getResultCode();
     }
     
+    /**
+     * memcache機能の無効化を行う
+     * debug時用
+     * 
+     * @access public
+     * @param string $namespace
+     * @return integer
+     */
+    public static function setGetDisable($disable = true)
+    {
+        self::$_getDisable = $disable;
+    }
 }
 
 /**

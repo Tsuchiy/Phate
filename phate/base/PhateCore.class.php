@@ -16,8 +16,8 @@ define('PHATE_MAINTENANCE_DIR', PHATE_ROOT_DIR . 'maintenance/');
 define('PHATE_PROJECT_DIR', PHATE_ROOT_DIR . 'project/');
 
 // サーバ環境取得
-if (!($serverEnv = getenv(PROJECT_NAME . '_env'))) {
-    if (!($serverEnv = getenv(strtoupper(PROJECT_NAME . '_ENV')))) {
+if (!($serverEnv = getenv(strtoupper(PROJECT_NAME . '_ENV')))) {
+    if (!($serverEnv = getenv(PROJECT_NAME . '_env'))) {
         if (!($serverEnv = trim(file_get_contents(PHATE_ROOT_DIR . 'serverEnv/status.conf')))) {
             throw new Exception('Server environment file is empty');
         }
@@ -28,7 +28,7 @@ define('SERVER_ENV', $serverEnv);
 // フレームワーク基底部の読み込み
 $dh = opendir(PHATE_BASE_DIR);
 while (($file = readdir($dh)) !== false) {
-    if (is_file(PHATE_BASE_DIR . $file) && preg_match('/(.*)\.class\.php/', $file)) {
+    if (is_file(PHATE_BASE_DIR . $file) && preg_match('/^.*\.class\.php$/', $file)) {
         if ($file == basename(__FILE__)) {
             continue;
         }
@@ -139,7 +139,7 @@ class PhateCore
         }
         // キャッシュ確認
         $cacheFileName = PHATE_CACHE_DIR . self::$_appName . '_autoload_' . SERVER_ENV . '.cache';
-        if(file_exists($cacheFileName) && !$this->isDebug()) {
+        if (file_exists($cacheFileName) && !$this->isDebug()) {
             self::$_includeClassList = msgpack_unserialize(file_get_contents($cacheFileName));
             return self::$_includeClassList;
         }
@@ -219,9 +219,16 @@ class PhateCore
      * @param void
      * @return array
      */
-    public static function getConfigure()
+    public static function getConfigure($key = NULL)
     {
-        return self::$_conf;
+        if (is_null($key)) {
+            return self::$_conf;
+        }
+        if (array_key_exists($key, self::$_conf)) {
+            return self::$_conf[$key];
+        } else {
+            return NULL;
+        }
     }
     
     public static function getBaseUri()
@@ -287,7 +294,7 @@ class PhateCore
             ob_end_clean();
             PhateHttpResponseHeader::setHttpStatus(PhateHttpResponseHeader::HTTP_NOT_FOUND);
             PhateHttpResponseHeader::sendResponseHeader();
-            if(self::$_isDebug) {
+            if (self::$_isDebug) {
                 var_dump($e);
             }
             exit();
@@ -374,6 +381,9 @@ class PhateCore
      */
     public function __destruct()
     {
+        if (class_exists('PhateRedis')) {
+            PhateRedis::disconnect();
+        }
         if (class_exists('PhateMemcached')) {
             PhateMemcached::disconnect();
         }

@@ -1,5 +1,5 @@
 all:
-  DEBUG: false
+  DEBUG: true
   BASE_URI:
   AUTOLOAD:
   FILTER:
@@ -10,8 +10,6 @@ all:
   DATABASE:
     load_yaml_file: 
   MEMCACHE:
-    load_yaml_file: 
-  MAINTENANCE:
     load_yaml_file: 
   TIMER:
     TIMEZONE: Asia/Tokyo

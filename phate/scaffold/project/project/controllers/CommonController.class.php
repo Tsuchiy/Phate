@@ -1,7 +1,7 @@
 <?php
-define('PHATE_PROJECT_CONTROLLERS_DIR', realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR);
-define('PHATE_PROJECT_MODELS_DIR', realpath(dirname(__FILE__).'/../models/') . DIRECTORY_SEPARATOR);
-define('PHATE_PROJECT_VIEWS_DIR', realpath(dirname(__FILE__).'/../views/') . DIRECTORY_SEPARATOR);
+define('PROJECT_CONTROLLERS_DIR', realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR);
+define('PROJECT_MODELS_DIR', realpath(dirname(__FILE__).'/../models/') . DIRECTORY_SEPARATOR);
+define('PROJECT_VIEWS_DIR', realpath(dirname(__FILE__).'/../views/') . DIRECTORY_SEPARATOR);
 
 /**
  * コントローラ基底クラス

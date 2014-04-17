@@ -57,8 +57,11 @@ class PhateTimer
      * @param string $string "Y-m-d H:i:s"型
      * @return DateTime
      */
-    private static function getDateTimeClassByString($string)
+    private static function getDateTimeClassByString($string = NULL)
     {
+        if (is_null($string)) {
+            return self::getDateTimeClass();
+        }
         $datetimeClass = new DateTime();
         $datetimeClass->setTimeZone(new DateTimeZone(self::$_timezone));
         $arr = array();
@@ -99,6 +102,20 @@ class PhateTimer
     }
     
     /**
+     * フォーマットされた時刻を得る
+     * 
+     * @access public
+     * @param integer $timestamp UnixTimeStamp(省略は生成時刻)
+     * @return string
+     */
+    public static function getTime($timestamp = NULL)
+    {
+        $datetimeClass = self::getDateTimeClass($timestamp);
+        return $datetimeClass->format('H:i:s');
+    }
+    
+    
+    /**
      * フォーマットされた日を得る
      * 
      * @access public
@@ -123,6 +140,22 @@ class PhateTimer
         $datetimeClass = self::getDateTimeClass($timestamp);
         return $datetimeClass->format('w');
     }
+
+    /**
+     * DateTimeフォーマットに従った文字列を返す
+     * 
+     * @access public
+     * 
+     * @param string $format
+     * @param int $timestamp
+     * @return string
+     */
+    public static function format($format, $timestamp = NULL)
+    {
+        $datetimeClass = self::getDateTimeClass($timestamp);
+        return $datetimeClass->format($format);
+    }
+
     
     /**
      * アプリ内リセット時間を考慮したフォーマットされた日を得る
@@ -160,4 +193,20 @@ class PhateTimer
         return $rtn;
     }
     
+    /**
+     * String形式の日付の間隔を秒単位で取得する
+     * 
+     * @access public
+     * @param string $toTimeString 目的の"Y-m-d H:i:s"型
+     * @param string $fromTimeString "Y-m-d H:i:s"型(省略は生成時刻)
+     * @return int
+     */
+    public static function getDateTimeDiffSecond($toTimeString, $fromTimeString = NULL)
+    {
+        $arr = self::getDateTimeDiff($toTimeString, $fromTimeString);
+        return  ($arr['day'] * 24 * 60 * 60) +
+                ($arr['hour'] * 60 * 60) +
+                ($arr['minute'] * 60) +
+                ($arr['second']);
+    }
 }

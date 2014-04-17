@@ -64,3 +64,18 @@ class Phate404Exception extends Exception
 class PhateUnauthorizedException extends Exception
 {
 }
+
+/**
+ * PhateDatabaseException例外
+ *
+ * データベース関連の例外
+ *
+ * @package PhateFramework
+ * @access public
+ * @author  Nobuo Tsuchiya <develop@m.tsuchi99.net>
+ * @create  2013/08/01
+ **/
+class PhateDatabaseException extends PDOException
+{
+}
+

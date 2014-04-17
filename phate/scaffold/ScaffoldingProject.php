@@ -51,8 +51,12 @@ class scaffoldingProject
         copy($scaffoldDir . 'project/batches/CommonBatch.class.php', $dir . 'batches/CommonBatch.class.php');
         mkdir($dir . 'controllers');
         copy($scaffoldDir . 'project/controllers/CommonController.class.php', $dir . 'controllers/CommonController.class.php');
+        mkdir($dir . 'controllers/index');
+        copy($scaffoldDir . 'project/controllers/index/IndexController.class.php', $dir . 'controllers/index/IndexController.class.php');
         mkdir($dir . 'data');
+        chmod($dir . 'data', 0777);
         mkdir($dir . 'filters');
+        copy($scaffoldDir . 'project/filters/MaintenanceInputFilter.class.php', $dir . 'filters/MaintenanceInputFilter.class.php');
         mkdir($dir . 'maintenance');
         copy($scaffoldDir . 'project/maintenance/toRename.yml', $dir . 'maintenance/toRename.yml');
         mkdir($dir . 'models');

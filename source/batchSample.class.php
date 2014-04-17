@@ -11,9 +11,10 @@
 ini_set('display_errors', 0);
 
 // application name
-define('PROJECT_NAME', 'FwTest');
+define('PROJECT_NAME', 'sample');
 // debug OnOff
-$debug = true;
+$debug = false;
+
 /**
  * real code
  */
@@ -21,7 +22,7 @@ try {
     // Include Core
     include(dirname(__FILE__) . '/../phate/base/PhateCore.class.php');
     $instance = PhateCore::getInstance(PROJECT_NAME, $debug);
-    $instance->doBatch('DummyBatch');
+    $instance->doBatch('SampleBatch');
 } catch (Exception $e) {
     if ($debug) {
         var_dump($e);

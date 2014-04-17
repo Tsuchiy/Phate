@@ -1,15 +1,15 @@
 <?php
 /**
- * PhatePureRendererクラス
+ * PhateCssRendererクラス
  *
- * パラメータをダンプ出力するレンダラ
+ * CSSのヘッダを付け描画をするレンダラ
  *
  * @package PhateFramework
  * @access  public
  * @author  Nobuo Tsuchiya <develop@m.tsuchi99.net>
  * @create  2013/08/01
  **/
-class PhatePureRenderer
+class PhateCssRenderer
 {
     public function __construct()
     {
@@ -22,6 +22,7 @@ class PhatePureRenderer
      */
     public function render($value)
     {
+        PhateHttpResponseHeader::setContentType('text/css');
         print_r($value);
     }
 }

@@ -3,8 +3,7 @@
  * PhateMbgaクラス
  *
  * 設定ファイル読んで、エンドポイントやキー情報を取得して
- * OAuth使ってMBGAのAPIにホゲホゲするクラス
- * 未実装
+ * OAuth使ってMBGAのAPIにアクセスするクラス
  *
  * @package PhateFramework
  * @access public
@@ -27,6 +26,23 @@ class PhateMbga
         $filename = PHATE_CONFIG_DIR . $sysConf['MBGA']['load_yaml_file'];
         self::$_config = PhateCommon::parseConfigYaml($filename);
     }
+    /*
+     * 設定ファイルの設定を取得
+     */
+    public static function getConfigure($key = null)
+    {
+        if (!self::$_config) {
+            self::setConfig();
+        }
+        if (is_null($key)) {
+            return self::$_config;
+        }
+        if (isset(self::$_config[$key])) {
+            return self::$_config[$key];
+        }
+        return null;
+    }
+    
     
     /**
      * 設定ファイルよりApplicationIDを取得
@@ -76,6 +92,22 @@ class PhateMbga
         return trim(self::$_config['consumer_secret']);
     }
 
+    /**
+     * 設定ファイルより公式グループ・サークルIDを取得
+     * @return string
+     * @throws PhateCommonException
+     */
+    public static function getGroupCircleId()
+    {
+        if (!self::$_config) {
+            self::setConfig();
+        }
+        if (!isset(self::$_config['official_group_circle_id'])) {
+            throw new PhateCommonException('no mbga configure official_group_circle_id');
+        }
+        return trim(self::$_config['official_group_circle_id']);
+    }
+    
     /**
      * mbga側のユーザIDを取得する
      * @return int
@@ -175,9 +207,11 @@ class PhateMbga
      */
     public static function makeLinkUrl($url)
     {
-        $s = $url[0] == '/' ? '' : DIRECTORY_SEPARATOR;
-        $serverUrl = PhateCore::getBaseUri() . $s . $url;
-        return self::getLinkBaseUrl() . '?url=' . urlencode($serverUrl);
+        $serverUrl = PhateCore::getBaseUri() . ($url[0] == '/' ? substr($url, 1) : $url);
+        if (!self::gadgetValidate()) {
+            return $serverUrl;
+        }
+        return '?url=' . urlencode($serverUrl);
     }
 
     
@@ -277,11 +311,12 @@ class PhateMbga
             curl_setopt ($curl, CURLOPT_POSTFIELDS, $postData);
         }
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 2);
         $response = curl_exec($curl);
         $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
         if (!preg_match('/^2.*/', $statusCode)) {
-            throw new PhateMbgaException($statusCode . ' mbga restful API connection fail');
+            throw new PhateMbgaException($statusCode . ' mbga restful API connection fail', $statusCode);
         }
         $obj = $response ? json_decode($response, true) : NULL;
         return $obj;
@@ -323,11 +358,12 @@ class PhateMbga
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($curl, CURLOPT_ENCODING , "gzip");
         curl_setopt($curl, CURLOPT_HTTPHEADER, $auth_header);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 2);
         $response = curl_exec($curl);
         $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
         if (!preg_match('/^2.*/', $statusCode)) {
-            throw new PhateMbgaException('mbga restful API connection fail');
+            throw new PhateMbgaException('mbga restful API connection fail', $statusCode);
         }
         $obj = $response ? json_decode($response, true) : NULL;
         return $obj;
@@ -362,11 +398,12 @@ class PhateMbga
             curl_setopt ($curl, CURLOPT_POSTFIELDS, $postData);
         }
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 2);
         $response = curl_exec($curl);
         $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
         if (!preg_match('/^2.*/', $statusCode)) {
-            throw new PhateMbgaException('mbga restful API connection fail');
+            throw new PhateMbgaException('mbga restful API connection fail', $statusCode);
         }
         $obj = $response ? json_decode($response, true) : NULL;
         return $obj;
@@ -406,15 +443,20 @@ class PhateMbga
             curl_setopt ($curl, CURLOPT_POSTFIELDS, $postData);
         }
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 2);
         $response = curl_exec($curl);
         $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
         if (!preg_match('/^2.*/', $statusCode)) {
-            throw new PhateMbgaException($statusCode . ' mbga restful API connection fail(trusted)');
+            throw new PhateMbgaException($statusCode . ' mbga restful API connection fail(trusted)', $statusCode);
         }
         $obj = $response ? json_decode($response, true) : NULL;
         return $obj;
     }
+    
+    /* ---------------------------------------------------------------------
+     * TextData API関連
+       ---------------------------------------------------------------------*/
     
     /**
      * textDataGroupを作成する
@@ -423,12 +465,30 @@ class PhateMbga
      */
     public static function makeTextDataGroup($textDataGroupName)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/textdata/@app/@all';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/@all';
         $send = array('name' => $textDataGroupName);
         $postData = json_encode($send);
         
-        return self::trustedRequest($url, 'POST', $postData);
+        return self::trustedRequest($endpoint, 'POST', $postData);
+    }
+
+    /**
+     * textDataGroupを一覧を取得する
+     * @return type
+     */
+    public static function getTextDataGroup()
+    {
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/@all';
+        
+        $res= self::trustedRequest($endpoint);
+        $rtn = array();
+        foreach ($res['entry'] as $row) {
+            $rtn[] = $row['name'];
+        }
+        
+        return $rtn;
     }
     
     /**
@@ -438,10 +498,10 @@ class PhateMbga
      */
     public static function deleteTextDataGroup($textDataGroupName)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/textdata/@app/' . $textDataGroupName . '/@self';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/' . $textDataGroupName . '/@self';
         
-        return self::trustedRequest($url, 'DELETE');
+        return self::trustedRequest($endpoint, 'DELETE');
     }
     
     /**
@@ -450,28 +510,33 @@ class PhateMbga
      * @param string $textDataGroup
      * @return array
      */
-    public static function getTextDataArray(array $ids, $textDataGroup)
-    {
-        $url  = self::getApiBaseUrl();
-        $url .= '/textdata/@app/' . $textDataGroup . '/@all/' . implode(';', $ids) . '?format=json';
-        
-        return self::proxyRequest($url);
-    }
-
-    /**
-     * TextDataAPIよりJSONを取得する
-     * @param array $ids
-     * @param string $textDataGroup
-     * @return array
-     */
     public static function getTextData(array $ids, $textDataGroup)
     {
-        $res = self::getTextDataArray($ids, $textDataGroup);
-
+        $rtn = array();
+        foreach ($ids as $id) {
+            $rtn[$id] = null;
+        }
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/' . $textDataGroup . '/@all/' . implode(';', $ids) . '?format=json';
+        try {
+            if (self::gadgetValidate()) {
+                $res = self::proxyRequest($endpoint);
+            } else {
+                $res = self::trustedRequest($endpoint);
+            }
+        } catch(Exception $e) {
+            if (($e instanceof PhateMbgaException) && ($e->getCode() == '404')) {
+                return $rtn;
+            }
+            throw $e;
+        }
         if (!isset($res["entry"])) {
+            if (isset($res['textData']['id']) && (isset($res['textData']['data']))) {
+                $rtn[$res['textData']['id']] = $res['textData']['data'];
+                return $rtn;
+            }
             throw new PhateMbgaException;
         }
-        $rtn = array();
         foreach ($res["entry"] as $value) {
             $rtn[$value["id"]] = $value["data"];
         }
@@ -487,13 +552,46 @@ class PhateMbga
      */
     public static function setTextData($textData, $textDataGroup)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/textdata/@app/' . $textDataGroup . '/@all/';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/' . $textDataGroup . '/@all/';
         $send = array('data' => $textData);
         $postData = json_encode($send);
+            if (self::gadgetValidate()) {
+                $res = self::proxyRequest($endpoint, 'POST', $postData);
+            } else {
+                $res = self::trustedRequest($endpoint, 'POST', $postData);
+            }
         
-        return self::proxyRequest($url, 'POST', $postData);
+        return $res;
         
+    }
+    
+    /**
+     * TextDataAPIのテキストを更新し、JSONを取得する
+     * @param string $textData
+     * @param int    $id
+     * @param string $textDataGroup
+     * @return array
+     */
+    public static function updateTextData($textData, $id, $textDataGroup)
+    {
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/' . $textDataGroup . '/@all/' . $id;
+        $send = array('data' => $textData);
+        $putData = json_encode($send);
+        try {
+            if (self::gadgetValidate()) {
+                $rtn = self::proxyRequest($endpoint, 'PUT', $putData);
+            } else {
+                $rtn = self::trustedRequest($endpoint, 'PUT', $putData);
+            }
+        } catch (Exception $e) {
+            if (($e instanceof PhateMbgaException) && ($e->getCode() == '404')) {
+                return false;
+            }
+            throw $e;
+        }
+        return true;
     }
     
     /**
@@ -504,12 +602,27 @@ class PhateMbga
      */
     public static function deleteTextData(array $ids, $textDataGroup)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/textdata/@app/' . $textDataGroup . '/@all/' . implode(';', $ids);
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/textdata/@app/' . $textDataGroup . '/@all/' . implode(';', $ids);
         
-        self::proxyRequest($url, 'DELETE');
+        try {
+            if (self::gadgetValidate()) {
+                self::proxyRequest($endpoint, 'DELETE');
+            } else {
+                self::trustedRequest($endpoint, 'DELETE');
+            }
+        } catch (Exception $e) {
+            if (($e instanceof PhateMbgaException) && ($e->getCode() == '404')) {
+                return false;
+            }
+            throw $e;
+        }
         return true;
     }
+
+    /* ---------------------------------------------------------------------
+     * NGWord API関連
+       ---------------------------------------------------------------------*/
     
     /**
      * NGWordAPIでテキストをチェックする
@@ -518,18 +631,32 @@ class PhateMbga
      */
     public static function hasNGWord($textData)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/ngword?_method=check&format=json';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/ngword?_method=check&format=json';
         $send = array('data' => $textData);
         $postData = json_encode($send);
-
-        $rtn = self::proxyRequest($url, 'POST', $postData);
+        if (self::gadgetValidate()) {
+            $rtn = self::proxyRequest($endpoint, 'POST', $postData);
+        } else {
+            $rtn = self::trustedRequest($endpoint, 'POST', $postData);
+        }
         if (!isset($rtn["ngword"]["valid"])) {
             throw new PhateMbgaException('response is illegal');
         }
         
         return !$rtn["ngword"]["valid"];
     }
+
+    /* ---------------------------------------------------------------------
+     * People API関連
+       ---------------------------------------------------------------------*/
+    
+    const PEOPLE_GENDER_MALE = 'male';
+    const PEOPLE_GENDER_FEMALE = 'female';
+    const PEOPLE_GENDER_UNKNOWN = 'undisclosed';
+    const PEOPLE_GRADE_KANTAN = 1;
+    const PEOPLE_GRADE_NORMAL = 2;
+    const PEOPLE_GRADE_AUTHORIZED = 3;
     
     /**
      * 指定したopen_social_viewer_idのpeople情報を取得(省略時はログインユーザ)
@@ -538,12 +665,23 @@ class PhateMbga
      */
     public static function getPeople($userId = null)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/people/';
-        $url .= is_null($userId) ? '@me' : $userId;
-        $url .= '/@self?format=json';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/people/';
+        $endpoint.= is_null($userId) ? '@me' : $userId;
+        $endpoint .= '/@self?format=json';
         
-        $rtn = self::proxyRequest($url);
+        try {
+            if (self::gadgetValidate()) {
+                $rtn = self::proxyRequest($endpoint);
+            } else {
+                $rtn = self::trustedRequest($endpoint);
+            }
+        } catch (Exception $e) {
+            if (($e instanceof PhateMbgaException) && ($e->getCode() == '404')) {
+                return null;
+            }
+            throw $e;
+        }
         return $rtn["person"];
     }
 
@@ -554,18 +692,33 @@ class PhateMbga
      */
     public static function getFriends($count = null, $statIndex = null)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/people/@me/@friends?format=json';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/people/@me/@friends?format=json';
         if (!is_null($count)) {
-            $url .= '&count=' . $count;
+            $endpoint .= '&count=' . $count;
         }
         if (!is_null($statIndex)) {
-            $url .= '&startIndex=' . $statIndex;
+            $endpoint .= '&startIndex=' . $statIndex;
         }
         
-        $rtn = self::proxyRequest($url);
+        try {
+            if (self::gadgetValidate()) {
+                $rtn = self::proxyRequest($endpoint);
+            } else {
+                $rtn = self::trustedRequest($endpoint);
+            }
+        } catch (Exception $e) {
+            if (($e instanceof PhateMbgaException) && ($e->getCode() == '404')) {
+                return null;
+            }
+            throw $e;
+        }
         return $rtn["entry"];
     }
+    
+    /* ---------------------------------------------------------------------
+     * Avatar API関連
+       ---------------------------------------------------------------------*/
     
     const AVATAR_SIZE_SMALL  = "small";
     const AVATAR_SIZE_MEDIUM = "medium";
@@ -580,28 +733,47 @@ class PhateMbga
      * @param string $view
      * @return array
      */
-    public static function getAvatar(array $idArray = null, $size = self::AVATAR_SIZE_SMALL, $view=self::AVATAR_VIEW_UPPER)
+    public static function getAvatar(array $idArray = null, $size = self::AVATAR_SIZE_MEDIUM, $view=self::AVATAR_VIEW_UPPER)
     {
         $guid = is_null($idArray) ? '@me' : implode(';', $idArray);
-        $url  = self::getApiBaseUrl();
-        $url .= '/avatar/' . $guid . '/@self/';
-        $url .= 'size=' . $size . ';';
-        $url .= 'view=' . $view . ';';
-        $url .= 'type=image;';
-        $url .= 'extension=png;';
-        
-        $res = self::proxyRequest($url);
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/avatar/' . $guid . '/@self/';
+        $endpoint .= 'size=' . $size . ';';
+        $endpoint .= 'view=' . $view . ';';
+        $endpoint .= 'type=image;';
+        $endpoint .= 'extension=png';
         $rtn = array();
+        if (is_null($idArray)) {
+            $rtn[self::getUserId()] = null;
+        } else {
+            foreach ($idArray as $id) {
+                $rtn[$id] = null;
+            }
+        }
+        
+        try {
+            $res = self::proxyRequest($endpoint);
+        } catch (Exception $e) {
+            if (($e instanceof PhateMbgaException) && ($e->getCode() == '404')) {
+                return $rtn;
+            }
+            throw $e;
+        }
         if (!array_key_exists("entry", $res)) {
-            $rtn[] = $res["avatar"]["url"];
+            $userId = is_null($idArray) ? self::getUserId() : array_shift($idArray);
+            $rtn[$userId] = $res["avatar"]["url"];
         } else {
             foreach ($res["entry"] as $userId => $value) {
-                $id = preg_replace('/^(.*):[0-9]*$', '$2', $userId);
-                $rtn[$id] = $value['url'];
+                $id = preg_match('/^([a-zA-z\.]*):([0-9]*)$/', $userId, $tmp);
+                $rtn[$tmp[2]] = $value['url'];
             }
         }
         return $rtn;
     }
+
+    /* ---------------------------------------------------------------------
+     * BlackList API関連
+       ---------------------------------------------------------------------*/
     
     /**
      * BlacklistAPIをコールしてblacklistに乗っているかを取得する
@@ -611,16 +783,24 @@ class PhateMbga
      */
     public static function isOnBlackList($fromUserId, $toUserId)
     {
-        $url  = self::getApiBaseUrl();
-        $url .= '/blacklist/' . $fromUserId . '/@all/' . $toUserId . '?format=json';
+        $endpoint  = self::getApiBaseUrl();
+        $endpoint .= '/blacklist/' . $fromUserId . '/@all/' . $toUserId . '?format=json';
         
         try {
-            self::proxyRequest($url);
+            if (self::gadgetValidate()) {
+                self::proxyRequest($endpoint);
+            } else {
+                self::trustedRequest($endpoint);
+            }
         } catch (PhateMbgaException $e) {
             return false;
         }
         return true;
     }
+    
+    /* ---------------------------------------------------------------------
+     * Payment API関連
+       ---------------------------------------------------------------------*/
     
     /**
      * payment登録を行う
@@ -632,8 +812,8 @@ class PhateMbga
      */
     public static function registerPayment($callbackUrl, $finishUrl, PhateMbgaPaymentEntryObject $obj)
     {
-        $url = self::getApiBaseUrl();
-        $url .= '/payment/@me/@self/@app';
+        $endpoint = self::getApiBaseUrl();
+        $endpoint .= '/payment/@me/@self/@app';
         
         $postData = json_encode(
             array(
@@ -649,7 +829,7 @@ class PhateMbga
                     )
                 )
         );
-        $rtn = self::proxyRequest($url, 'POST', $postData);
+        $rtn = self::proxyRequest($endpoint, 'POST', $postData);
         if (!isset($rtn['payment']['endpointUrl'])) {
             throw new PhateMbgaException('response is illegal');
         }
@@ -658,6 +838,65 @@ class PhateMbga
             'paymentId' => $rtn['payment']['id'],
             );
     }
+
+    /* ---------------------------------------------------------------------
+     * Message API関連
+       ---------------------------------------------------------------------*/
+    
+    private static function sendMessage($targetOpenSocialId, $title, array $urlsArray)
+    {
+        $endpoint = self::getApiBaseUrl();
+        $endpoint .= '/messages/@me/@outbox';
+        $urls = array();
+        foreach ($urlsArray as $url) {
+            if (!(array_key_exists("value", $url) && array_key_exists("type", $url))) {
+                throw new PhateMbgaException('illegal urls parameter');
+            }
+            if (($url["type"] == "mobile") || ($url["type"] == "canvas")) {
+                $urls[] = array(
+                    "value" => $url["value"],
+                    "type"  => $url["type"],
+                );
+            }
+        }
+        if (count($urls) == 0) {
+            throw new PhateMbgaException('illegal urls parameter');
+        }
+        $postData = json_encode(
+                array(
+                    "type"  => "NOTIFICATION",
+                    "title" => $title,
+                    "urls"  => $urls,
+                    "recipients" => array($targetOpenSocialId),
+                    )
+        );
+        return array(
+            "endpoint" => $endpoint,
+            "postData" => $postData,
+        );
+    }
+    
+    /**
+     * MessageAPIへアクセスを行う(proxy版)
+     */
+    public static function sendMessageOnProxy($targetOpenSocialId, $title, array $urlsArray)
+    {
+        $value = self::sendMessage($targetOpenSocialId, $title, $urlsArray);
+        return self::proxyRequest($value["endpoint"], "POST", $value["postData"]);
+    }
+    
+    /**
+     * MessageAPIへアクセスを行う(trusted版)
+     */
+    public static function sendMessageOnTrusted($targetOpenSocialId, $title, array $urlsArray)
+    {
+        $value = self::sendMessage($targetOpenSocialId, $title, $urlsArray);
+        return self::trustedRequest($value["endpoint"], "POST", $value["postData"]);
+    }
+    
+    /* ---------------------------------------------------------------------
+     * Lifecycle関連
+       ---------------------------------------------------------------------*/
     
     const LIFE_CYCLE_EVENT_TYPE_ADD_APP = 'event.addapp'; // アプリ利用開始
     const LIFE_CYCLE_EVENT_TYPE_REMOVE_APP = 'event.removeapp'; // アプリ削除
@@ -670,7 +909,8 @@ class PhateMbga
      * @return array
      * @throws PhateMbgaException
      */
-    public static function getLifeCycleInfo() {
+    public static function getLifeCycleInfo()
+    {
         if (!self::gadgetValidate()) {
             throw new PhateMbgaException('mbga lifecycle API connection fail');
         }
@@ -720,6 +960,233 @@ class PhateMbga
         return $rtn;
     }
     
+    /* ---------------------------------------------------------------------
+     * Chat API関連
+       ---------------------------------------------------------------------*/
+    
+    /**
+     * ChatChannelを作成する
+     * 
+     * @param string $name
+     * @param string $shortName
+     * @return array
+     */
+    public static function makeChatChannel($name, $shortName)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels';
+        $postData = json_encode(
+                array(
+                    "name" => $name,
+                    "shortName" => $shortName,
+                    )
+                );
+        self::trustedRequest($endpoint, "POST", $postData);
+        return true;
+    }
+
+    /**
+     * ChatChannelを取得する
+     * 
+     * @param int $channelId
+     * @return string
+     */
+    public static function getChatChannel($channelId)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId;
+        self::trustedRequest($endpoint);
+        return true;
+    }
+    
+    /**
+     * ChatChannelを更新する
+     * 
+     * @param int $channelId
+     * @param string $name
+     * @param string $shortName
+     * @return array
+     */
+    public static function updateChatChannel($channelId, $name, $shortName)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '?fields=name,shortName';
+        $postData = json_encode(
+                array(
+                    "name" => $name,
+                    "shortName" => $shortName,
+                    )
+                );
+        self::trustedRequest($endpoint, "PUT", $postData);
+        return true;
+    }
+    
+    /**
+     * ChatChannelを削除する
+     * 
+     * @param int $channelId
+     * @return type
+     */
+    public static function deleteChatChannel($channelId)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId;
+        self::trustedRequest($endpoint, "DELETE");
+        return true;
+    }
+
+    /**
+     * ChatMember一覧を取得する
+     * 
+     * @param int $channelId
+     * @param int $pageSize
+     * @param int $pageNo
+     * @return array|boolean
+     */
+    public static function getChatMembers($channelId, $pageSize = null, $pageNo = null)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/members?fields=localId&sortBy=joined&sortOrder=descending';
+        if (!is_null($pageSize)) {
+            $endpoint .= '&count=' . $pageSize;
+            if (!is_null($pageNo)) {
+                $endpoint .= '&startIndex=' . (($pageNo - 1) * $pageSize) + 1;
+            }
+        }
+        $res = self::trustedRequest($endpoint);
+        if (!isset($res["entry"]) || !is_array($res["entry"])) {
+            return false;
+        }
+        $rtn = array();
+        foreach($res["entry"] as $row) {
+            $rtn[] = $row["localId"];
+        }
+        return $rtn;
+    }
+    
+    /**
+     * ChatMember情報を取得する
+     * 
+     * @param int $channelId
+     * @param int $userId
+     * @return array
+     */
+    public static function getChatMember($channelId, $userId)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/members/person:' . $userId;
+        return self::trustedRequest($endpoint);
+    }
+    
+    /**
+     * ChatMemberを追加する
+     * 
+     * @param int $channelId
+     * @param array $userIds
+     * @return array
+     */
+    public static function addChatMembers($channelId, array $userIds)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/members';
+        
+        if (count($userIds) == 1) {
+            $postArray = array(
+                    "objectType" => "person",
+                    "localId" => array_shift($userIds),
+                );
+        } else {
+            $postArray = array();
+            foreach ($userIds as $userId) {
+                $postArray[] = array(
+                        "objectType" => "person",
+                        "localId" => $userId,
+                    );
+           }
+        }
+        $postData = json_encode($postArray);
+        return self::trustedRequest($endpoint, 'POST', $postData);
+    }
+
+    /**
+     * ChatMemberを削除する
+     * @param int $channelId
+     * @param array $userIds
+     * @return boolean
+     */
+    public static function deleteChatMembers($channelId, array $userIds)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/members/';
+        
+        foreach ($userIds as &$userId) {
+            $userId = 'person:' . $userId;
+        }
+        $endpoint .= implode(',', $userIds);
+        self::trustedRequest($endpoint, 'DELETE');
+        return true;
+    }
+    
+    /**
+     * Chatのmessage一覧を取得する
+     * 
+     * @param int $channelId
+     * @param int $pageSize
+     * @param int $pageNo
+     * @return array
+     */
+    public static function getChatMessageList($channelId, $pageSize = null, $pageNo = null)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/messages?sortBy=published&sortOrder=descending';
+        if (!is_null($pageSize)) {
+            $endpoint .= '&count=' . $pageSize;
+            if (!is_null($pageNo)) {
+                $endpoint .= '&startIndex=' . (($pageNo - 1) * $pageSize) + 1;
+            }
+        }
+        return self::trustedRequest($endpoint);
+    }
+    
+    /**
+     * Chatのmessageを取得する
+     * 
+     * @param int $channelId
+     * @param int $messageId
+     * @return array
+     */
+    public static function getChatMessage($channelId, $messageId)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/messages/' . $messageId;
+        return self::trustedRequest($endpoint);
+    }
+    
+    /**
+     * Chatのmessageを送信する
+     * 
+     * @param int $channelId
+     * @param string $message
+     * @return boolean
+     */
+    public static function sendChatApplicationMessage($channelId, $message)
+    {
+        $endpoint  = self::getApiBaseUrl(true);
+        $endpoint .= '/chat/@app/channels/' . $channelId . '/messages';
+        $postData = json_encode(
+                array(
+                    "actor" =>array(
+                        "objectType" => "application",
+                        "localId" => self::getApplicationId(),
+                        ),
+                    "payload" =>array(
+                        "message" => $message,
+                    ),
+                )
+            );
+        self::trustedRequest($endpoint, "POST", $postData);
+        return true;
+    }
 }
 
 class PhateMbgaException extends Exception
