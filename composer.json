@@ -17,7 +17,7 @@
         "twig/twig": "1.*.*"
     },
     "config": {
-        "vendor-dir": "./phate/vendor"
+        "vendor-dir": "./phateFrameWorks/vendor"
     },
     "minimum-stability": "dev"
 }
