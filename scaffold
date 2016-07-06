@@ -1,7 +1,8 @@
 #!/usr/bin/php
 <?php
+namespace Phate;
 // 各ディレクトリ定数宣言
-define('PHATE_SCAFFOLD_DIR', realpath(dirname(__FILE__)) . '/phate/scaffold/');
+define('PHATE_SCAFFOLD_DIR', realpath(dirname(__FILE__)) . '/phateFrameWorks/scaffold/');
 define('PHATE_HTTPROOT_DIR', realpath(dirname(__FILE__)) . '/htdocs/');
 
 if (!isset($argv[1])) {
@@ -11,7 +12,7 @@ if (!isset($argv[1])) {
 
 switch ($argv[1]) {
     case 'project':
-        if (file_exists(realpath(dirname(__FILE__)) . '/project/' . $argv[2])) {
+        if (file_exists(realpath(dirname(__FILE__)) . '/projects/' . $argv[2])) {
             echo "error : project already exist\n";
             exit(1);
         }
@@ -21,7 +22,7 @@ switch ($argv[1]) {
         $scaffolding->execute($argv[2]);
         break;
     case 'database':
-        $configFile = realpath(dirname(__FILE__)) . '/config/' . $argv[2];
+        $configFile = $argv[2];
         if (!file_exists($configFile)) {
             echo "error : yaml file not exist\n";
             exit(1);
@@ -29,8 +30,8 @@ switch ($argv[1]) {
         echo "scaffolding database model from " . $argv[2] . "\n";
         $config = yaml_parse_file($configFile);
         define('PROJECT_NAME', $config['project_name']);
-        include(dirname(__FILE__) . '/phate/base/PhateCore.class.php');
-        $instance = PhateCore::getInstance($config['project_name'], true);
+        include(dirname(__FILE__) . '/phateFrameWorks/base/PhateCore.class.php');
+        $instance = \Phate\Core::getInstance($config['project_name'], true);
         require PHATE_SCAFFOLD_DIR . 'ScaffoldingDatabase.php';
         $scaffolding = new scaffoldingDatabase();
         $scaffolding->execute($config);

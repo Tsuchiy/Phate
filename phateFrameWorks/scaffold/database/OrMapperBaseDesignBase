@@ -1,0 +1,24 @@
+namespace %%projectName%%;
+/**
+ * %%className%%OrmBaseクラス
+ *
+ * %%tableName%%のO-RMapper基礎クラス
+ *
+ * @package %%projectName%%
+ * @access  public
+ **/
+class %%className%%OrmBase extends \Phate\ORMapperBase
+{
+    protected $_tableName = '%%tableName%%';
+
+    protected $_pkey = [
+%%pkey%%    ];
+    protected $_pkeyIsRowId = %%pkIsRowId%%;
+    protected $_value = [
+%%value%%    ];
+    protected $_type = [
+%%type%%    ];
+    protected $_toSave = [
+%%value%%    ];
+
+

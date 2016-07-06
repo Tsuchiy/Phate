@@ -1,0 +1,16 @@
+all:
+  debug: true
+  base_uri: 
+  timer:
+    timezone: Asia/Tokyo
+    application_reset_time: 00:00:00
+  logger_config_file: %%projectName%%_logger.yml
+  database_config_file: %%projectName%%_database.yml
+  apc_config_file: %%projectName%%_apc.yml
+  memcache_config_file: %%projectName%%_memcache.yml
+  redis_config_file: %%projectName%%_redis.yml
+  filter_config_file: %%projectName%%_filter.yml
+  extend_autoload:
+    - %%CONTEXT_ROOT%%/projects/%%projectName%%/renderers
+  template:
+    cache_dir: %%CONTEXT_ROOT%%/projects/%%projectName%%/data/cache/templates/
